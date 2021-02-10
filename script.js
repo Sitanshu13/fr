@@ -1,31 +1,61 @@
-const video = document.getElementById('video')
+  // Classifier Variable
+  let classifier;
+  // Model URL
+  let imageModelURL = 'https://teachablemachine.withgoogle.com/models/pPxvo094A/';
+  
+  // Video
+  let video;
+  let flippedVideo;
+  // To store the classification
+  let label = "";
 
-Promise.all([
-  faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-  faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-  faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
-  faceapi.nets.faceExpressionNet.loadFromUri('/models')
-]).then(startVideo)
+  // Load the model first
+  function preload() {
+    classifier = ml5.imageClassifier(imageModelURL + 'model.json');
+  }
 
-function startVideo() {
-  navigator.getUserMedia(
-    { video: {} },
-    stream => video.srcObject = stream,
-    err => console.error(err)
-  )
-}
+  function setup() {
+    createCanvas(320, 260);
+    // Create the video
+    video = createCapture(VIDEO);
+    video.size(320, 240);
+    video.hide();
 
-video.addEventListener('play', () => {
-  const canvas = faceapi.createCanvasFromMedia(video)
-  document.body.append(canvas)
-  const displaySize = { width: video.width, height: video.height }
-  faceapi.matchDimensions(canvas, displaySize)
-  setInterval(async () => {
-    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions()
-    const resizedDetections = faceapi.resizeResults(detections, displaySize)
-    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
-    faceapi.draw.drawDetections(canvas, resizedDetections)
-    faceapi.draw.drawFaceLandmarks(canvas, resizedDetections)
-    faceapi.draw.drawFaceExpressions(canvas, resizedDetections)
-  }, 100)
-})
+    flippedVideo = ml5.flipImage(video);
+    // Start classifying
+    classifyVideo();
+  }
+
+  function draw() {
+    background(0);
+    // Draw the video
+    image(flippedVideo, 0, 0);
+
+    // Draw the label
+    fill(255);
+    textSize(16);
+    textAlign(CENTER);
+    text(label, width / 2, height - 4);
+  }
+
+  // Get a prediction for the current video frame
+  function classifyVideo() {
+    flippedVideo = ml5.flipImage(video)
+    classifier.classify(flippedVideo, gotResult);
+    flippedVideo.remove();
+
+  }
+
+  // When we get a result
+  function gotResult(error, results) {
+    // If there is an error
+    if (error) {
+      console.error(error);
+      return;
+    }
+    // The results are in an array ordered by confidence.
+    // console.log(results[0]);
+    label = results[0].label;
+    // Classifiy again!
+    classifyVideo();
+  }
